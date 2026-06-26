@@ -31,6 +31,7 @@ const categoriesApi = require('./pages/categories');
 const ordersApi = require('./pages/orders');
 const chatsApi = require('./pages/chats');
 const checkoutApi = require('./pages/checkout');
+const adminAuthApi = require('./pages/adminAuth');
 
 app.use('/users', userApi);
 app.use('/products', productsApi);
@@ -38,6 +39,7 @@ app.use('/categories', categoriesApi);
 app.use('/orders', ordersApi);
 app.use('/chats', chatsApi);
 app.use('/checkout', checkoutApi);
+app.use('/admin', adminAuthApi);
 
 // Start the server
 app.listen(port, () => {console.log(`Server running at http://localhost:${port}`)});
