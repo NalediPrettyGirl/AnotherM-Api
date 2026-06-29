@@ -3,8 +3,12 @@ const cors = require('cors');
 const admin = require('firebase-admin');
 const path = require('path');
 
-//const serviceAccount = require('./ServiceKeyAccount.json');  Your downloaded key
- const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+let serviceAccount;
+if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+  serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+} else {
+  serviceAccount = require('./ServiceKeyAccount.json');
+}
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
