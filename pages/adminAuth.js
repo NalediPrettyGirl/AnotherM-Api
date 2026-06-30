@@ -1,5 +1,7 @@
 const express = require('express');
 const admin = require('firebase-admin');
+const bcrypt = require('bcryptjs');
+const { generateToken } = require('../middleware/auth');
 const router = express.Router();
 const db = admin.firestore();
 
@@ -22,18 +24,22 @@ router.post('/login', async (req, res) => {
     const adminDoc = snapshot.docs[0];
     const adminData = adminDoc.data();
 
-    if (adminData.password !== password) {
+    const isMatch = await bcrypt.compare(password, adminData.password);
+    if (!isMatch) {
       return res.status(401).json({ error: 'Invalid username or password' });
     }
 
     // Update last login timestamp
     await adminDoc.ref.update({ lastLogin: admin.firestore.FieldValue.serverTimestamp() });
 
+    const token = generateToken({ id: adminDoc.id, username: adminData.username, role: 'admin' });
+
     res.status(200).json({
       success: true,
       id: adminDoc.id,
       username: adminData.username,
-      displayName: adminData.displayName || adminData.username
+      displayName: adminData.displayName || adminData.username,
+      token
     });
   } catch (err) {
     console.error('Admin login error:', err);
@@ -56,21 +62,31 @@ router.post('/setup', async (req, res) => {
       return res.status(400).json({ error: 'Username and password are required' });
     }
 
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,}$/;
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters and contain at least one uppercase letter, one lowercase letter, and one number.' });
+    }
+
     // Only allow setup if no admins exist yet
     const existing = await db.collection('admins').get();
     if (!existing.empty) {
       return res.status(409).json({ error: 'Admin account already exists. Use the login endpoint.' });
     }
 
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
     const docRef = await db.collection('admins').add({
       username,
-      password, // Note: store hashed in production
+      password: hashedPassword,
       displayName: displayName || username,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       lastLogin: null
     });
 
-    res.status(201).json({ success: true, id: docRef.id, message: 'Admin account created successfully.' });
+    const token = generateToken({ id: docRef.id, username, role: 'admin' });
+
+    res.status(201).json({ success: true, id: docRef.id, message: 'Admin account created successfully.', token });
   } catch (err) {
     console.error('Admin setup error:', err);
     res.status(500).json({ error: 'Setup failed: ' + err.message });
@@ -85,6 +101,11 @@ router.post('/change-password', async (req, res) => {
       return res.status(400).json({ error: 'All fields are required' });
     }
 
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,}$/;
+    if (!passwordRegex.test(newPassword)) {
+      return res.status(400).json({ error: 'New password must be at least 6 characters and contain at least one uppercase letter, one lowercase letter, and one number.' });
+    }
+
     const snapshot = await db.collection('admins')
       .where('username', '==', username)
       .get();
@@ -94,12 +115,16 @@ router.post('/change-password', async (req, res) => {
     }
 
     const adminDoc = snapshot.docs[0];
-    if (adminDoc.data().password !== currentPassword) {
+    const isMatch = await bcrypt.compare(currentPassword, adminDoc.data().password);
+    if (!isMatch) {
       return res.status(401).json({ error: 'Current password is incorrect' });
     }
 
+    const salt = await bcrypt.genSalt(10);
+    const hashedNewPassword = await bcrypt.hash(newPassword, salt);
+
     await adminDoc.ref.update({
-      password: newPassword,
+      password: hashedNewPassword,
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
 

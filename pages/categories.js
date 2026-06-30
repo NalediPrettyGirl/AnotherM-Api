@@ -2,10 +2,12 @@ const express = require('express');
 const admin = require('firebase-admin');
 const router = express.Router();
 const db = admin.firestore();
+const { authenticate } = require('../middleware/auth');
 
-// Create a category
-router.post('/', async (req, res) => {
+// Create a category (Admin only)
+router.post('/', authenticate, async (req, res) => {
   try {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
     const { name, description, imageUrl } = req.body;
     if (!name) {
       return res.status(400).json({ error: 'Name is required' });
@@ -47,9 +49,10 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Update a category
-router.put('/:id', async (req, res) => {
+// Update a category (Admin only)
+router.put('/:id', authenticate, async (req, res) => {
   try {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
     const updateData = req.body;
     if (Object.keys(updateData).length === 0) {
       return res.status(400).json({ error: 'No data to update' });
@@ -64,9 +67,10 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Delete a category
-router.delete('/:id', async (req, res) => {
+// Delete a category (Admin only)
+router.delete('/:id', authenticate, async (req, res) => {
   try {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
     await db.collection('categories').doc(req.params.id).delete();
     res.json({ message: 'Category deleted' });
   } catch (err) {

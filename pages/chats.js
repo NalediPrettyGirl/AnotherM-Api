@@ -2,9 +2,10 @@ const express = require('express');
 const admin = require('firebase-admin');
 const router = express.Router();
 const db = admin.firestore();
+const { authenticate } = require('../middleware/auth');
 
-// Create or update a chat thread
-router.post('/', async (req, res) => {
+// Create or update a chat thread (Protected)
+router.post('/', authenticate, async (req, res) => {
   try {
     const { id, productId, productTitle, productImage, sellerId, buyerName, buyerEmail, buyerPhone, messages } = req.body;
     

@@ -2,9 +2,10 @@ const express = require('express');
 const admin = require('firebase-admin');
 const router = express.Router();
 const db = admin.firestore();
+const { authenticate } = require('../middleware/auth');
 
-// Create an order
-router.post('/', async (req, res) => {
+// Create an order (Protected)
+router.post('/', authenticate, async (req, res) => {
   try {
     const { buyerId, productId, totalAmount, status } = req.body;
     if (!buyerId || !productId || !totalAmount) {
@@ -48,9 +49,10 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Update an order
-router.put('/:id', async (req, res) => {
+// Update an order (Admin only)
+router.put('/:id', authenticate, async (req, res) => {
   try {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
     const updateData = req.body;
     if (Object.keys(updateData).length === 0) {
       return res.status(400).json({ error: 'No data to update' });
@@ -65,9 +67,10 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Delete an order
-router.delete('/:id', async (req, res) => {
+// Delete an order (Admin only)
+router.delete('/:id', authenticate, async (req, res) => {
   try {
+    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
     await db.collection('orders').doc(req.params.id).delete();
     res.json({ message: 'Order deleted' });
   } catch (err) {

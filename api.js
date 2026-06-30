@@ -20,13 +20,53 @@ const db = admin.firestore();
 const app = express();
 const port = process.env.PORT || 3000;
 
+const rateLimit = require('express-rate-limit');
+
+// Global rate limiter (100 requests per 15 mins per IP)
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, 
+  max: 100,
+  message: { error: 'Too many requests from this IP, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Middleware to parse JSON bodies
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
-app.use(cors());
+
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:5500',
+  'http://127.0.0.1:5500',
+  'https://anotherm-api.onrender.com'
+];
+app.use(cors({
+  origin: function(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  }
+}));
+
+const sanitize = require('./middleware/sanitize');
+const helmet = require('helmet');
+
+app.use(helmet({
+  contentSecurityPolicy: false
+}));
+app.use(sanitize);
+
+// Apply global limiter to all requests
+app.use(globalLimiter);
 
 // Serve static HTML files
 app.use(express.static(path.join(__dirname, '..')));
+
+// Serve uploaded images statically
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Import and mount API modules
 const userApi = require('./pages/user');
