@@ -35,21 +35,7 @@ const globalLimiter = rateLimit({
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
-const allowedOrigins = [
-  'http://localhost:3000',
-  'http://localhost:5500',
-  'http://127.0.0.1:5500',
-  'https://anotherm-api.onrender.com'
-];
-app.use(cors({
-  origin: function(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  }
-}));
+app.use(cors());
 
 const sanitize = require('./middleware/sanitize');
 const helmet = require('helmet');
